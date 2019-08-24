@@ -1,0 +1,85 @@
+upstream fastcgi_backend {
+	server  unix:/run/php/php7.1-fpm.sock;
+}
+
+server {
+	listen          80;
+	listen          [::]:80;
+	server_name     website.com www.website.com;
+
+#	Redirect HTTP to HTTPS
+#	return          301     https://website.com$request_uri;
+
+	root           /etc/nginx/website;
+
+#	Add index.php to the list if you are using PHP
+	index index.php index.html index.htm index.nginx-debian.html;
+
+#	pass PHP scripts to FastCGI server
+		location ~ \.php$ {
+		root           /etc/nginx/website;
+		fastcgi_index  index.php;
+		try_files $uri =404;
+#		With php-fpm (or other unix sockets):
+		fastcgi_pass fastcgi_backend;
+		include        fastcgi_params;
+		fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+	}
+
+#	Below is the code for wordpress permalinks
+	location ~ ^(/[^/]+/)?files/(.+) {
+#		try_files /wp-content/blogs.dir/$blogid/files/$2 /wp-includes/ms-files.php?file=$2 ;
+
+		access_log off;     log_not_found off; expires max;
+	}
+
+#	avoid php readfile()
+	location ^~ /blogs.dir {
+		internal;
+		alias /var/www/example.com/htdocs/wp-content/blogs.dir ;
+		access_log off;     log_not_found off; expires max;
+	}
+
+	if (!-e $request_filename) {
+		rewrite /wp-admin$ $scheme://$host$uri/ permanent;
+		rewrite ^(/[^/]+)?(/wp-.*) $2 last;
+		rewrite ^(/[^/]+)?(/.*\.php) $2 last;
+	}
+
+	location / {
+		try_files $uri $uri/ /index.php?$args ;
+	}
+
+}
+
+server {
+	listen          443             ssl     http2;
+	listen          [::]:443        ssl     http2;
+	server_name     website.com www.website.com;
+
+#	SSL certificate and Optimization
+#	ssl_certificate     /etc/nginx/website/ssl/certificate.crt;
+#	ssl_certificate_key /etc/nginx/website/ssl/private.key;
+#	ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+#	ssl_ciphers         HIGH:!aNULL:!MD5;
+
+#	Redirect www to non-www
+#	if ($host = 'www.website.com') {
+#		rewrite  ^/(.*)$  http://website.com$1  permanent;
+#	}
+
+#	Add index.php to the list if you are using PHP
+	index index.php index.html index.htm index.nginx-debian.html;
+
+#	Redirect www to non-www
+#	if ($host = 'www.website.com') {
+#		rewrite  ^/(.*)$  http://website.com$1  permanent;
+#	}
+
+
+#	location / {
+#		First attempt to serve request as file, then
+#		as directory, then fall back to displaying a 404.
+#		try_files $uri $uri/ =404;
+#	}
+}
